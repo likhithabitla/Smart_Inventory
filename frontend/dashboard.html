@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — Smart Inventory Advisor</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div id="nav-mount"></div>
+
+<div class="shell">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Store analytics</div>
+      <h1>Dashboard</h1>
+      <p>Trends, top products and the external factors moving demand for your store.</p>
+    </div>
+    <a href="upload.html" class="btn btn-outline">Upload more data</a>
+  </div>
+
+  <div id="alert-mount"></div>
+  <div id="loading-state" class="empty-state"><div class="icon">◐</div><p>Loading your store's data…</p></div>
+
+  <div id="dashboard-content" style="display:none;">
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Total records</div><div class="value" id="stat-total-records">—</div></div>
+      <div class="stat"><div class="label">Products tracked</div><div class="value" id="stat-total-products">—</div></div>
+      <div class="stat"><div class="label">Avg units sold</div><div class="value" id="stat-avg-units">—</div></div>
+      <div class="stat"><div class="label">Model status</div><div class="value" id="stat-model-status" style="font-size:15px;">—</div></div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card wide">
+        <h3>Sales &amp; demand trend</h3>
+        <canvas id="chart-trend"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <h3>Top products by units sold</h3>
+        <canvas id="chart-top-products"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Inventory vs. demand</h3>
+        <canvas id="chart-inv-demand"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <h3>Seasonal demand pattern</h3>
+        <canvas id="chart-seasonality"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Weather impact on demand</h3>
+        <canvas id="chart-weather"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <h3>Promotion impact</h3>
+        <canvas id="chart-promotion"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Epidemic / disruption impact</h3>
+        <canvas id="chart-epidemic"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="empty-data-state" style="display:none;" class="empty-state tag-card">
+    <div class="icon">⌸</div>
+    <h3>No data yet</h3>
+    <p>Upload your store's sales history to unlock analytics and forecasts.</p>
+    <a href="upload.html" class="btn btn-primary" style="margin-top:10px;">Upload data</a>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+requireAuth();
+renderNav("dashboard");
+
+const PALETTE = {
+  teal: "#0F6B62",
+  tealSoft: "rgba(15,107,98,0.18)",
+  amber: "#E8A33D",
+  amberSoft: "rgba(232,163,61,0.35)",
+  ink: "#142421",
+  muted: "#7C8A86",
+  line: "#DEDACD",
+};
+
+Chart.defaults.font.family = "Inter, sans-serif";
+Chart.defaults.color = PALETTE.ink;
+Chart.defaults.borderColor = PALETTE.line;
+
+async function loadDashboard() {
+  try {
+    const [summary, data] = await Promise.all([
+      api("/store-summary"),
+      api("/dashboard-data"),
+    ]);
+
+    document.getElementById("loading-state").style.display = "none";
+
+    if (!data.total_rows) {
+      document.getElementById("empty-data-state").style.display = "block";
+      return;
+    }
+
+    document.getElementById("dashboard-content").style.display = "block";
+    renderStats(summary);
+    renderTrend(data.sales_trend, data.demand_trend);
+    renderTopProducts(data.top_products);
+    renderInventoryVsDemand(data.inventory_vs_demand);
+    renderSeasonality(data.seasonality_breakdown);
+    renderWeather(data.weather_impact);
+    renderPromotion(data.promotion_impact);
+    renderEpidemic(data.epidemic_impact);
+  } catch (err) {
+    document.getElementById("loading-state").style.display = "none";
+    showAlert("alert-mount", err.message);
+  }
+}
+
+function renderStats(summary) {
+  document.getElementById("stat-total-records").textContent = fmtNum(summary.total_records, 0);
+  document.getElementById("stat-total-products").textContent = fmtNum(summary.total_products, 0);
+  document.getElementById("stat-avg-units").textContent = fmtNum(summary.avg_units_sold);
+  document.getElementById("stat-model-status").innerHTML = summary.model_version
+    ? `<span class="badge badge-teal">v${summary.model_version}</span>`
+    : `<span class="badge badge-amber">Not trained</span>`;
+}
+
+function renderTrend(sales, demand) {
+  new Chart(document.getElementById("chart-trend"), {
+    type: "line",
+    data: {
+      labels: sales.map((r) => r.date),
+      datasets: [
+        {
+          label: "Units sold",
+          data: sales.map((r) => r.value),
+          borderColor: PALETTE.teal,
+          backgroundColor: PALETTE.tealSoft,
+          tension: 0.25,
+          fill: true,
+          pointRadius: 0,
+        },
+        {
+          label: "Demand",
+          data: demand.map((r) => r.value),
+          borderColor: PALETTE.amber,
+          backgroundColor: "transparent",
+          borderDash: [4, 3],
+          tension: 0.25,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: { responsive: true, plugins: { legend: { position: "top" } } },
+  });
+}
+
+function renderTopProducts(rows) {
+  new Chart(document.getElementById("chart-top-products"), {
+    type: "bar",
+    data: {
+      labels: rows.map((r) => r.product_id),
+      datasets: [{ label: "Units sold", data: rows.map((r) => r.value), backgroundColor: PALETTE.teal }],
+    },
+    options: { responsive: true, indexAxis: "y", plugins: { legend: { display: false } } },
+  });
+}
+
+function renderInventoryVsDemand(rows) {
+  new Chart(document.getElementById("chart-inv-demand"), {
+    type: "line",
+    data: {
+      labels: rows.map((r) => r.date),
+      datasets: [
+        { label: "Inventory level", data: rows.map((r) => r.inventory_level), borderColor: PALETTE.muted, pointRadius: 0, tension: 0.2 },
+        { label: "Demand", data: rows.map((r) => r.demand), borderColor: PALETTE.amber, pointRadius: 0, tension: 0.2 },
+      ],
+    },
+    options: { responsive: true, plugins: { legend: { position: "top" } } },
+  });
+}
+
+function renderSeasonality(rows) {
+  new Chart(document.getElementById("chart-seasonality"), {
+    type: "bar",
+    data: {
+      labels: rows.map((r) => r.seasonality),
+      datasets: [{ label: "Avg demand", data: rows.map((r) => r.avg_demand), backgroundColor: PALETTE.teal }],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } },
+  });
+}
+
+function renderWeather(rows) {
+  new Chart(document.getElementById("chart-weather"), {
+    type: "bar",
+    data: {
+      labels: rows.map((r) => r.weather_condition),
+      datasets: [{ label: "Avg demand", data: rows.map((r) => r.avg_demand), backgroundColor: PALETTE.amber }],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } },
+  });
+}
+
+function renderPromotion(rows) {
+  new Chart(document.getElementById("chart-promotion"), {
+    type: "bar",
+    data: {
+      labels: rows.map((r) => (r.promotion_flag ? "Promotion active" : "No promotion")),
+      datasets: [{ label: "Avg demand", data: rows.map((r) => r.avg_demand), backgroundColor: [PALETTE.muted, PALETTE.teal] }],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } },
+  });
+}
+
+function renderEpidemic(rows) {
+  new Chart(document.getElementById("chart-epidemic"), {
+    type: "bar",
+    data: {
+      labels: rows.map((r) => (r.epidemic_flag ? "Epidemic period" : "Normal period")),
+      datasets: [{ label: "Avg demand", data: rows.map((r) => r.avg_demand), backgroundColor: [PALETTE.teal, PALETTE.muted] }],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } },
+  });
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

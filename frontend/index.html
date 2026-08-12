@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Inventory Advisor — Demand Forecasting for Shop Owners</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-mount"></div>
+
+<div class="shell">
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Restock, backed by data</div>
+      <h1>Know what to restock<br/>before the shelf is empty.</h1>
+      <p class="lead">
+        Upload your sales history, train a model on your store's own patterns,
+        and get a restock quantity for every product — informed by weather,
+        promotions, seasonality and demand trends across your business.
+      </p>
+      <div class="cta-row">
+        <a href="register.html" class="btn btn-primary">Create your store account</a>
+        <a href="login.html" class="btn btn-outline">Log in</a>
+      </div>
+    </div>
+
+    <div class="hero-panel">
+      <div class="tag-card">
+        <div class="sku">SKU · 8841-A</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;">
+          <div>
+            <div style="font-family:var(--display);font-size:20px;">Predicted demand</div>
+            <div style="color:var(--ink-soft);font-size:13px;">Next cycle, Store #04</div>
+          </div>
+          <div style="font-family:var(--display);font-size:34px;color:var(--teal-dark);">312</div>
+        </div>
+      </div>
+      <div class="tag-card" style="border-left-color:var(--amber);">
+        <div class="sku">RESTOCK RECOMMENDATION</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;">
+          <div style="color:var(--ink-soft);font-size:13px;">Current inventory: 96 units</div>
+          <div style="font-family:var(--display);font-size:34px;color:var(--amber-dark);">+216</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="feature-grid">
+    <div class="tag-card">
+      <h3>Upload your data</h3>
+      <p>Bring your own CSV or Excel export. We validate the columns, show you a
+      preview, and append it to your store's history — nothing is ever overwritten.</p>
+    </div>
+    <div class="tag-card">
+      <h3>Train on your patterns</h3>
+      <p>One model learns from every connected store, encoded by store and product
+      identity, so it generalizes well even with a modest amount of your own data —
+      while a decay weighting keeps recent trends dominant.</p>
+    </div>
+    <div class="tag-card">
+      <h3>Predict &amp; restock</h3>
+      <p>Enter a product and its current conditions — price, promotion, weather,
+      season — and get a predicted demand and a concrete restock number.</p>
+    </div>
+  </section>
+
+  <section style="margin-top:56px;">
+    <h2 style="margin-bottom:18px;">How it works</h2>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>01 · Data stays yours</h3>
+        <p style="color:var(--ink-soft);margin:8px 0 0;font-size:13.5px;">
+          Every account belongs to exactly one store. Every query is filtered by
+          that store ID at the database layer — your uploads, predictions and
+          dashboards are never visible to another store.
+        </p>
+      </div>
+      <div class="chart-card">
+        <h3>02 · A model that generalizes</h3>
+        <p style="color:var(--ink-soft);margin:8px 0 0;font-size:13.5px;">
+          Rather than training a separate, data-starved model per store, Smart
+          Inventory Advisor trains one global model with store- and
+          product-aware encodings — so small stores still benefit from patterns
+          learned across the whole network.
+        </p>
+      </div>
+      <div class="chart-card wide">
+        <h3>03 · Recent data matters more</h3>
+        <p style="color:var(--ink-soft);margin:8px 0 0;font-size:13.5px;">
+          Training uses exponential decay weighting: <code>weight = exp(-λ ×
+          days_since_record)</code>. Recent sales pull harder on the model than
+          data from months ago, so the forecast adapts as trends shift without
+          forgetting seasonal patterns entirely.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="site-footer">Smart Inventory Advisor — internal demand forecasting tool</footer>
+
+<script src="js/api.js"></script>
+<script>renderNav("home");</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Create account — Smart Inventory Advisor</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-mount"></div>
+
+<div class="auth-wrap">
+  <div class="eyebrow">New store</div>
+  <div class="tag-card">
+    <div class="sku">REGISTER</div>
+    <h2 style="margin-top:6px;">Create your store account</h2>
+    <div id="alert-mount"></div>
+    <form id="register-form" novalidate>
+      <div class="field">
+        <label for="store_id">Store ID</label>
+        <input type="text" id="store_id" placeholder="e.g. store-04" required />
+        <div class="hint">A short identifier for your store. Everyone who registers with the same Store ID shares that store's data.</div>
+      </div>
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" autocomplete="username" required minlength="3" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="new-password" required minlength="6" />
+        <div class="hint">At least 6 characters.</div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Create account</button>
+    </form>
+  </div>
+  <p class="auth-switch">Already have an account? <a href="login.html">Log in</a></p>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+renderNav("home");
+
+document.getElementById("register-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearAlert("alert-mount");
+
+  const store_id = document.getElementById("store_id").value.trim();
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!store_id || username.length < 3 || password.length < 6) {
+    showAlert("alert-mount", "Fill in a store ID, a username (3+ chars) and a password (6+ chars).");
+    return;
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Creating account…';
+
+  try {
+    const data = await api("/register", { method: "POST", body: { store_id, username, password } });
+    setSession(data);
+    window.location.href = "upload.html";
+  } catch (err) {
+    showAlert("alert-mount", err.message);
+    btn.disabled = false;
+    btn.textContent = "Create account";
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Predict — Smart Inventory Advisor</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-mount"></div>
+
+<div class="shell">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Restock forecast</div>
+      <h1>Predict demand &amp; restock quantity</h1>
+      <p>Enter a product and its current conditions to get a predicted demand
+      and a recommended restock quantity for your store.</p>
+    </div>
+  </div>
+
+  <div id="alert-mount"></div>
+
+  <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:24px;align-items:start;">
+    <div class="tag-card">
+      <div class="sku">PREDICTION INPUT</div>
+      <form id="predict-form" style="margin-top:12px;">
+        <div class="form-grid">
+          <div class="field">
+            <label for="product_id">Product ID</label>
+            <input type="text" id="product_id" required placeholder="e.g. SKU-1042" />
+          </div>
+          <div class="field">
+            <label for="date">Date</label>
+            <input type="date" id="date" required />
+          </div>
+          <div class="field">
+            <label for="category">Category</label>
+            <input type="text" id="category" placeholder="e.g. Beverages" />
+          </div>
+          <div class="field">
+            <label for="region">Region</label>
+            <input type="text" id="region" placeholder="e.g. North" />
+          </div>
+          <div class="field">
+            <label for="inventory_level">Current inventory level</label>
+            <input type="number" id="inventory_level" required min="0" step="1" value="0" />
+          </div>
+          <div class="field">
+            <label for="price">Price</label>
+            <input type="number" id="price" min="0" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="discount">Discount (%)</label>
+            <input type="number" id="discount" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="field">
+            <label for="competitor_pricing">Competitor pricing</label>
+            <input type="number" id="competitor_pricing" min="0" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="weather_condition">Weather condition</label>
+            <select id="weather_condition">
+              <option value="">—</option>
+              <option>Sunny</option>
+              <option>Rainy</option>
+              <option>Cloudy</option>
+              <option>Snowy</option>
+              <option>Stormy</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="seasonality">Seasonality</label>
+            <select id="seasonality">
+              <option value="">—</option>
+              <option>Spring</option>
+              <option>Summer</option>
+              <option>Autumn</option>
+              <option>Winter</option>
+              <option>Holiday</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="promotion">Promotion running?</label>
+            <select id="promotion">
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="epidemic">Epidemic / disruption?</label>
+            <select id="epidemic">
+              <option value="0">No</option>
+              <option value="1">Yes</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Get prediction</button>
+      </form>
+    </div>
+
+    <div id="result-mount">
+      <div class="empty-state tag-card">
+        <div class="icon">◎</div>
+        <p>Fill in the form to see a predicted demand and restock quantity for this product.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+requireAuth();
+renderNav("predict");
+
+document.getElementById("date").valueAsDate = new Date();
+
+document.getElementById("predict-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearAlert("alert-mount");
+
+  const payload = {
+    product_id: document.getElementById("product_id").value.trim(),
+    date: document.getElementById("date").value,
+    category: document.getElementById("category").value.trim() || null,
+    region: document.getElementById("region").value.trim() || null,
+    inventory_level: parseFloat(document.getElementById("inventory_level").value) || 0,
+    price: document.getElementById("price").value ? parseFloat(document.getElementById("price").value) : null,
+    discount: parseFloat(document.getElementById("discount").value) || 0,
+    competitor_pricing: document.getElementById("competitor_pricing").value
+      ? parseFloat(document.getElementById("competitor_pricing").value) : null,
+    weather_condition: document.getElementById("weather_condition").value || null,
+    seasonality: document.getElementById("seasonality").value || null,
+    promotion: parseInt(document.getElementById("promotion").value, 10),
+    epidemic: parseInt(document.getElementById("epidemic").value, 10),
+  };
+
+  if (!payload.product_id || !payload.date) {
+    showAlert("alert-mount", "Product ID and date are required.");
+    return;
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Predicting…';
+
+  try {
+    const data = await api("/predict", { method: "POST", body: payload });
+    renderResult(data);
+  } catch (err) {
+    showAlert("alert-mount", err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Get prediction";
+  }
+});
+
+function renderResult(data) {
+  document.getElementById("result-mount").innerHTML = `
+    <div class="result-panel">
+      <div class="sku">${data.product_id} · STORE ${data.store_id} · MODEL ${data.model_version}</div>
+      <div style="margin-top:14px;">
+        <div class="big-label">Predicted demand</div>
+        <div class="big-number">${fmtNum(data.predicted_demand)}</div>
+      </div>
+      <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--line);">
+        <div class="big-label">Recommended restock quantity</div>
+        <div class="big-number" style="color:var(--amber-dark);">${fmtNum(data.recommended_restock_qty)}</div>
+        <p class="hint" style="margin-top:8px;">
+          Predicted demand (${fmtNum(data.predicted_demand)}) minus current
+          inventory (${fmtNum(data.inventory_level)}), floored at zero.
+        </p>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>

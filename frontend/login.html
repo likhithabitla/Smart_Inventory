@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log in — Smart Inventory Advisor</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-mount"></div>
+
+<div class="auth-wrap">
+  <div class="eyebrow">Store access</div>
+  <div class="tag-card">
+    <div class="sku">LOG IN</div>
+    <h2 style="margin-top:6px;">Welcome back</h2>
+    <div id="alert-mount"></div>
+    <form id="login-form" novalidate>
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Log in</button>
+    </form>
+  </div>
+  <p class="auth-switch">New store? <a href="register.html">Create an account</a></p>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+renderNav("home");
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearAlert("alert-mount");
+
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  if (!username || !password) {
+    showAlert("alert-mount", "Enter your username and password.");
+    return;
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Logging in…';
+
+  try {
+    const data = await api("/login", { method: "POST", body: { username, password } });
+    setSession(data);
+    window.location.href = "dashboard.html";
+  } catch (err) {
+    showAlert("alert-mount", err.message);
+    btn.disabled = false;
+    btn.textContent = "Log in";
+  }
+});
+</script>
+</body>
+</html>

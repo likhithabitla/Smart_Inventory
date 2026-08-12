@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Upload data — Smart Inventory Advisor</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="nav-mount"></div>
+
+<div class="shell">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Data intake</div>
+      <h1>Upload inventory data</h1>
+      <p>CSV or Excel. Required columns: <code>date</code>, <code>product_id</code>. Include
+      <code>demand</code> so uploaded rows can be used for training.</p>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="step-1">1 · Choose file</div>
+    <div class="step" id="step-2">2 · Preview</div>
+    <div class="step" id="step-3">3 · Confirm</div>
+  </div>
+
+  <div id="alert-mount"></div>
+
+  <div id="dropzone-panel">
+    <div class="dropzone" id="dropzone">
+      <div class="icon">⇪</div>
+      <div style="font-family:var(--display);text-transform:uppercase;letter-spacing:.03em;">
+        Drop a .csv or .xlsx file, or click to browse
+      </div>
+      <div class="hint" style="margin-top:6px;">Data is appended to your store's history — existing rows are never overwritten.</div>
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none;" />
+    </div>
+  </div>
+
+  <div id="preview-panel" style="display:none;margin-top:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+      <h3 style="margin:0;">Preview — first 10 rows</h3>
+      <span class="badge badge-teal mono" id="row-count-badge"></span>
+    </div>
+    <div id="warnings-mount"></div>
+    <div class="table-scroll">
+      <table id="preview-table">
+        <thead><tr id="preview-head"></tr></thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <button class="btn btn-primary" id="confirm-btn">Confirm &amp; append to store data</button>
+      <button class="btn btn-outline" id="cancel-btn">Choose a different file</button>
+    </div>
+  </div>
+
+  <div id="success-panel" style="display:none;margin-top:24px;">
+    <div class="result-panel">
+      <div class="big-label">Rows appended</div>
+      <div class="big-number" id="inserted-count">0</div>
+      <p style="margin-top:12px;color:var(--ink-soft);">
+        Your store's dataset has been updated. Head to
+        <a href="predict.html">Predict</a> to get a restock recommendation, or
+        train an updated model first.
+      </p>
+      <div style="display:flex;gap:12px;margin-top:16px;">
+        <a href="dashboard.html" class="btn btn-outline">View dashboard</a>
+        <button class="btn btn-amber" id="train-btn">Train model now</button>
+        <button class="btn btn-outline" id="upload-more-btn">Upload more data</button>
+      </div>
+      <div id="train-status" style="margin-top:14px;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script>
+requireAuth();
+renderNav("upload");
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("file-input");
+
+dropzone.addEventListener("click", () => fileInput.click());
+["dragenter", "dragover"].forEach((evt) =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("dragover"); })
+);
+["dragleave", "drop"].forEach((evt) =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("dragover"); })
+);
+dropzone.addEventListener("drop", (e) => {
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) handleFile(file);
+});
+
+function setStep(n) {
+  [1, 2, 3].forEach((i) => {
+    const el = document.getElementById(`step-${i}`);
+    el.classList.remove("active", "done");
+    if (i < n) el.classList.add("done");
+    if (i === n) el.classList.add("active");
+  });
+}
+
+async function handleFile(file) {
+  clearAlert("alert-mount");
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const data = await api("/upload/preview", { method: "POST", body: formData, isForm: true });
+    renderPreview(data);
+    setStep(2);
+    document.getElementById("dropzone-panel").style.display = "none";
+    document.getElementById("preview-panel").style.display = "block";
+  } catch (err) {
+    showAlert("alert-mount", err.message);
+  }
+}
+
+function renderPreview(data) {
+  document.getElementById("row-count-badge").textContent = `${data.row_count} rows detected`;
+
+  const warningsMount = document.getElementById("warnings-mount");
+  warningsMount.innerHTML = data.warnings
+    .map((w) => `<div class="alert alert-info">${w}</div>`)
+    .join("");
+
+  const head = document.getElementById("preview-head");
+  head.innerHTML = data.columns.map((c) => `<th>${c}</th>`).join("");
+
+  const body = document.getElementById("preview-body");
+  body.innerHTML = data.preview_rows
+    .map(
+      (row) =>
+        `<tr>${data.columns.map((c) => `<td>${row[c] ?? ""}</td>`).join("")}</tr>`
+    )
+    .join("");
+}
+
+document.getElementById("cancel-btn").addEventListener("click", () => {
+  fileInput.value = "";
+  document.getElementById("preview-panel").style.display = "none";
+  document.getElementById("dropzone-panel").style.display = "block";
+  setStep(1);
+});
+
+document.getElementById("confirm-btn").addEventListener("click", async () => {
+  clearAlert("alert-mount");
+  const btn = document.getElementById("confirm-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  try {
+    const data = await api("/upload/commit", { method: "POST" });
+    document.getElementById("preview-panel").style.display = "none";
+    document.getElementById("success-panel").style.display = "block";
+    document.getElementById("inserted-count").textContent = data.inserted_rows;
+    setStep(3);
+  } catch (err) {
+    showAlert("alert-mount", err.message);
+    btn.disabled = false;
+    btn.textContent = "Confirm & append to store data";
+  }
+});
+
+document.getElementById("upload-more-btn").addEventListener("click", () => {
+  fileInput.value = "";
+  document.getElementById("success-panel").style.display = "none";
+  document.getElementById("dropzone-panel").style.display = "block";
+  setStep(1);
+});
+
+document.getElementById("train-btn").addEventListener("click", async () => {
+  const statusMount = document.getElementById("train-status");
+  const btn = document.getElementById("train-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Training…';
+  statusMount.innerHTML = `<div class="alert alert-info">Training the global model on all available data. This can take a moment.</div>`;
+
+  try {
+    const data = await api("/train", { method: "POST" });
+    statusMount.innerHTML = `<div class="alert alert-success">
+      Model ${data.model_version} trained on ${data.rows_used_total} rows
+      (${data.rows_used_this_store} from your store). Validation MAE:
+      ${data.train_mae.toFixed(2)}, RMSE: ${data.train_rmse.toFixed(2)}.
+    </div>`;
+  } catch (err) {
+    statusMount.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Train model now";
+  }
+});
+</script>
+</body>
+</html>
