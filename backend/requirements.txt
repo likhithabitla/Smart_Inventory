@@ -5,7 +5,8 @@ psycopg2-binary==2.9.9
 pydantic==2.7.4
 pydantic-settings==2.3.4
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+passlib==1.7.4
+bcrypt==4.0.1
 python-multipart==0.0.9
 pandas==2.2.2
 numpy==1.26.4
